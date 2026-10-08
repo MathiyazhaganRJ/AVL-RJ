@@ -1,6 +1,4 @@
 # Build and temporary files
-*.avl
-*.mass
 *.st
 plot.ps
 __pycache__/

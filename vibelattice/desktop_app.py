@@ -126,7 +126,7 @@ class AVLDesktopApp(QMainWindow):
         self.init_data_model()
 
         # Start VibeLattice Server
-        vibelattice_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "vibe_frontend"))
+        vibelattice_dir = os.path.abspath(os.path.dirname(__file__))
         if not os.path.exists(vibelattice_dir):
             print(f"Warning: Could not find VibeLattice at {vibelattice_dir}")
         else:
@@ -368,6 +368,24 @@ class AVLDesktopApp(QMainWindow):
             self.update_plots()
 
     def init_data_model(self):
+        # Try to load the supra example by default
+        default_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "third_party", "avl", "runs", "supra.avl"))
+        if os.path.exists(default_file):
+            try:
+                from geometry_engine import Airplane
+                self.plane = Airplane.parse_avl_file(default_file)
+                
+                # Try to load masses if supra.mass exists
+                mass_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "third_party", "avl", "runs", "supra.mass"))
+                if os.path.exists(mass_file):
+                    from geometry_engine import PointMass
+                    # Simplistic mass load or just leave empty for now
+                    pass
+                self.current_surface_idx = 0
+                return
+            except Exception as e:
+                print(f"Could not load default supra.avl: {e}")
+
         self.plane = Airplane(
             name="Shark Hawk Glider",
             surfaces=[
@@ -1772,12 +1790,9 @@ class AVLDesktopApp(QMainWindow):
         
         if hasattr(self, 'vibe_port'):
             self.vibe_browser = QWebEngineView(self)
-            self.vibe_profile = QWebEngineProfile("VibeProfile", self.vibe_browser)
-            self.vibe_profile.setPersistentCookiesPolicy(QWebEngineProfile.NoPersistentCookies)
-            # Use isolated cache
-            self.vibe_profile.setCachePath(os.path.join(os.path.dirname(__file__), "QtWebEngineData"))
-            self.vibe_profile.setPersistentStoragePath(os.path.join(os.path.dirname(__file__), "QtWebEngineData"))
-            self.vibe_profile.clearHttpCache()
+            # Use an unnamed (in-memory) profile to prevent cache locks on second run!
+            self.vibe_profile = QWebEngineProfile(self.vibe_browser)
+
             
             # Subclass QWebEnginePage to intercept console messages
             class CustomWebEnginePage(QWebEnginePage):
@@ -1792,13 +1807,14 @@ class AVLDesktopApp(QMainWindow):
             # Start VibeLattice (cache-bust just in case the old blank one was cached)
             import time
             self.vibe_browser.setUrl(QUrl(f"http://localhost:{self.vibe_port}/?t={time.time()}"))
+            
             lay.addWidget(self.vibe_browser)
         else:
             lay.addWidget(QLabel("VibeLattice server failed to start."))
 
-    def push_to_vibelattice(self):
+    def push_to_vibelattice(self, silent=False):
         try:
-            runs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "vibe_frontend", "third_party", "avl", "runs"))
+            runs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "third_party", "avl", "runs"))
             if not os.path.exists(runs_dir):
                 os.makedirs(runs_dir)
             
@@ -1850,13 +1866,24 @@ class AVLDesktopApp(QMainWindow):
             """
             if hasattr(self, 'vibe_browser'):
                 self.vibe_browser.page().runJavaScript(js_code)
-                self.main_tabs.setCurrentIndex(1)
+                if not silent:
+                    self.main_tabs.setCurrentIndex(1)
                 
-            QMessageBox.information(self, "Success", "Plane geometry pushed to VibeLattice!")
+            if not silent:
+                QMessageBox.information(self, "Success", "Plane geometry pushed to VibeLattice!")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to push to VibeLattice:\n{str(e)}")
+            if not silent:
+                QMessageBox.critical(self, "Error", f"Failed to push to VibeLattice:\n{str(e)}")
 
-
+    def closeEvent(self, event):
+        """Ensure WebEngine components are cleaned up explicitly to prevent profile release crashes."""
+        if hasattr(self, 'vibe_page'):
+            self.vibe_page.deleteLater()
+        if hasattr(self, 'vibe_profile'):
+            self.vibe_profile.deleteLater()
+        if hasattr(self, 'vibe_browser'):
+            self.vibe_browser.deleteLater()
+        super().closeEvent(event)
 class OutputReaderThread(QThread):
     new_output = pyqtSignal(str)
 
