@@ -93,15 +93,17 @@ class Surface:
             return ""
             
         lines = [
+            f"#========================================================",
             f"SURFACE",
             f"{self.name}",
-            f"{self.nchord} {self.cspace:.4f}" # Nchord, Cspace
+            f"#Nchord spacing",
+            f"{self.nchord:<7} {self.cspace:.4f}\n"
         ]
         
         if self.duplicate_y:
-            lines.extend(["YDUPLICATE", "0.0"])
+            lines.extend(["YDUPLICATE", "0.0\n"])
             
-        lines.extend([f"ANGLE", f"{self.incidence:.4f}"])
+        lines.extend(["ANGLE", f"{self.incidence:.4f}\n"])
         
         for i, sec in enumerate(self.sections):
             x_abs = self.origin[0] + sec.offset_x
@@ -112,26 +114,28 @@ class Surface:
             nspan_val = sec.nspan if i < len(self.sections) - 1 else 0
             sspace_val = sec.sspace if i < len(self.sections) - 1 else 0.0
             
+            lines.append(f"#--------------------------------------------------------")
             lines.append(f"SECTION")
-            lines.append(f"{x_abs:.4f} {y_abs:.4f} {z_abs:.4f} {sec.chord:.4f} {sec.twist:.4f} {nspan_val} {sspace_val:.4f}")
+            lines.append(f"#Xle      Yle      Zle      Chord    Ainc     Nspan    Sspace")
+            lines.append(f" {x_abs:<8.4f} {y_abs:<8.4f} {z_abs:<8.4f} {sec.chord:<8.4f} {sec.twist:<8.4f} {nspan_val:<8} {sspace_val:.4f}\n")
             
             # Airfoil handling
             af = sec.airfoil.strip()
             if af.upper().startswith("NACA"):
                 naca_num = af.upper().replace('NACA', '').strip() or '0012'
-                lines.extend(["NACA", naca_num])
+                lines.extend(["NACA", f"{naca_num}\n"])
             else:
                 if not af.lower().endswith(".dat"):
                     af += ".dat"
-                lines.extend(["AFILE", af])
+                lines.extend(["AFILE", f"{af}\n"])
                 
             # Control handling
             if sec.control:
                 lines.append(f"CONTROL")
-                # Hinge vector (0 0 0) forces AVL to auto-calculate the correct hinge axis
-                lines.append(f"{sec.control.name} 1.0 {sec.control.hinge_x_c:.4f} 0.0 0.0 0.0 {sec.control.sym}")
+                lines.append(f"#name           gain  Xhinge  hvecX   hvecY   hvecZ   sgnDup")
+                lines.append(f" {sec.control.name:<14} 1.00  {sec.control.hinge_x_c:<7.4f} 0.000   0.000   0.000   {sec.control.sym}\n")
                 
-        return "\n".join(lines) + "\n"
+        return "\n".join(lines)
 
 @dataclass
 class Airplane:
@@ -390,20 +394,25 @@ class Airplane:
             f.write(self.to_mass_string())
             
     def to_avl_string(self) -> str:
-        """Returns the AVL geometry file content as a string."""
+        """Returns the AVL geometry file content as a string, formatted like Drela's examples."""
         if self.point_masses:
             self.calculate_cg()
             
         lines = [
             self.name,
-            f"{self.mach:.4f}",
-            f"{self.iy_sym} {self.iz_sym} {self.z_sym:.4f}",
-            f"{self.s_ref:.4f} {self.c_ref:.4f} {self.b_ref:.4f}",
-            f"{self.cg[0]:.4f} {self.cg[1]:.4f} {self.cg[2]:.4f}",
-            f"{self.cdp:.4f}"
+            "#Mach",
+            f" {self.mach:.4f}",
+            "#IYsym   IZsym   Zsym",
+            f" {self.iy_sym:<7} {self.iz_sym:<7} {self.z_sym:.4f}",
+            "#Sref    Cref    Bref",
+            f" {self.s_ref:<8.4f} {self.c_ref:<8.4f} {self.b_ref:.4f}",
+            "#Xref    Yref    Zref",
+            f" {self.cg[0]:<8.4f} {self.cg[1]:<8.4f} {self.cg[2]:.4f}",
+            "#CDp",
+            f" {self.cdp:.4f}\n"
         ]
         
-        full_text = "\n".join(lines) + "\n"
+        full_text = "\n".join(lines)
         for surf in self.surfaces:
             full_text += surf.to_avl_string()
             
