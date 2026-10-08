@@ -1,0 +1,9 @@
+# Build and temporary files
+*.avl
+*.mass
+*.st
+plot.ps
+__pycache__/
+current_run
+*.json
+test_ui.py
