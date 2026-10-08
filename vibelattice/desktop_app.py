@@ -126,7 +126,7 @@ class AVLDesktopApp(QMainWindow):
         self.init_data_model()
 
         # Start VibeLattice Server
-        vibelattice_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "vibelattice"))
+        vibelattice_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "vibe_frontend"))
         if not os.path.exists(vibelattice_dir):
             print(f"Warning: Could not find VibeLattice at {vibelattice_dir}")
         else:
@@ -1798,7 +1798,7 @@ class AVLDesktopApp(QMainWindow):
 
     def push_to_vibelattice(self):
         try:
-            runs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "vibelattice", "third_party", "avl", "runs"))
+            runs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "vibe_frontend", "third_party", "avl", "runs"))
             if not os.path.exists(runs_dir):
                 os.makedirs(runs_dir)
             
